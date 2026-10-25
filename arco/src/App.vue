@@ -2,7 +2,10 @@
   <a-config-provider :locale="arcoLocale">
     <main class="designer">
       <a-alert v-if="storageError" type="warning">{{ t(storageError) }}</a-alert>
-      <div class="workspace">
+      <nav ref="compactNavigation" class="compact-navigation" :aria-label="t('workspaceViews')">
+        <a-button v-for="panel in workspacePanels" :key="panel.key" :type="compactPanel === panel.key ? 'primary' : 'text'" :aria-pressed="compactPanel === panel.key" @click="compactPanel = panel.key"><template #icon><component :is="panel.icon" /></template>{{ t(panel.label) }}</a-button>
+      </nav>
+      <div class="workspace" :data-panel="compactPanel">
         <aside class="palette" :aria-label="t('components')">
           <div class="palette-heading"><IconApps /><strong>{{ t('designer') }}</strong><span>Arco</span></div>
           <div class="palette-scroll">
@@ -16,7 +19,7 @@
         <section class="center-board">
           <header class="toolbar">
             <a-space :size="0" wrap>
-              <a-button type="text" :disabled="!schema.fields.length" :title="t('preview')" @click="openPreview"><template #icon><IconPlayArrow /></template><span class="toolbar-label">{{ t('preview') }}</span></a-button>
+              <a-button class="preview-action" type="primary" :disabled="!schema.fields.length" :title="t('preview')" @click="openPreview"><template #icon><IconPlayArrow /></template><span class="toolbar-label">{{ t('preview') }}</span></a-button>
               <a-button type="text" :title="t('json')" @click="showJson"><template #icon><IconCode /></template><span class="toolbar-label">{{ t('json') }}</span></a-button>
               <a-button type="text" :disabled="!schema.fields.length" :title="t('viewCode')" @click="showCode"><template #icon><IconCodeBlock /></template><span class="toolbar-label">{{ t('viewCode') }}</span></a-button>
               <a-button type="text" :disabled="!schema.fields.length" :title="t('export')" @click="exportVue"><template #icon><IconDownload /></template><span class="toolbar-label">{{ t('export') }}</span></a-button>
@@ -28,8 +31,8 @@
           <a-alert v-if="draftError" type="warning" class="draft-warning" :title="t('unsavedDraft')">{{ draftError }}</a-alert>
           <section class="canvas" :aria-label="t('canvas')" @dragover.prevent @drop.prevent="dropCanvas($event)">
             <a-form :model="{}" :layout="schema.layout" :size="schema.size" class="canvas-form">
-              <DrawingCanvas :fields="schema.fields" :schema="schema" :selected-id="selectedId" :gutter="schema.gutter" @select="selectedId = $event" @drop-field="drop" @duplicate="duplicate" @remove="remove" @move="move" />
-              <div v-if="!schema.fields.length" class="canvas-empty"><IconDragDotVertical /><h2>{{ t('emptyTitle') }}</h2><p>{{ t('empty') }}</p></div>
+              <DrawingCanvas :fields="schema.fields" :schema="schema" :selected-id="selectedId" :gutter="schema.gutter" @select="selectField" @drop-field="drop" @duplicate="duplicate" @remove="remove" @move="move" />
+              <div v-if="!schema.fields.length" class="canvas-empty"><IconDragDotVertical /><h2>{{ t('emptyTitle') }}</h2><p class="desktop-empty-tip">{{ t('empty') }}</p><p class="compact-empty-tip">{{ t('compactEmpty') }}</p></div>
               <div v-if="schema.fields.length && schema.formButtons" class="canvas-buttons" :style="{ paddingLeft: schema.layout === 'vertical' ? '12px' : `${schema.labelWidth + 12}px` }" inert><a-space><a-button type="primary">{{ t('submit') }}</a-button><a-button>{{ t('reset') }}</a-button></a-space></div>
             </a-form>
           </section>
@@ -52,7 +55,7 @@
   </a-config-provider>
 </template>
 <script setup lang="ts">
-import { computed, defineAsyncComponent, ref, watch, type Component } from 'vue'
+import { computed, defineAsyncComponent, nextTick, ref, watch, type Component } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
 import { IconApps, IconSave, IconPlayArrow, IconCode, IconCodeBlock, IconDownload, IconCopy, IconImport, IconDelete, IconDragDotVertical, IconEdit, IconAlignLeft, IconLock, IconPlus, IconDown, IconBranch, IconCheckCircle, IconCheckSquare, IconPoweroff, IconSettings, IconClockCircle, IconCalendar, IconStar, IconPalette, IconUpload, IconLayout, IconBold, IconList, IconRecord } from '@arco-design/web-vue/es/icon'
 import DrawingCanvas, { type CanvasDrop } from './DrawingCanvas.vue'
@@ -61,6 +64,20 @@ import Preview from './Preview.vue'
 const CodeEditor = defineAsyncComponent(() => import('./CodeEditor.vue'))
 import { arcoLocale, locale, t, type TranslationKey } from './locale'
 import { createField, emptySchema, fieldTypes, generateVue, parseSchema, flattenFields, locateField, duplicateField, moveField, type Field, type FieldType, type Schema } from './schema'
+const compactNavigation = ref<HTMLElement>()
+const compactPanel = ref('canvas')
+const workspacePanels: { key: string, label: TranslationKey, icon: Component }[] = [
+  { key: 'components', label: 'components', icon: IconApps },
+  { key: 'canvas', label: 'canvasView', icon: IconLayout },
+  { key: 'properties', label: 'propertiesView', icon: IconSettings }
+]
+function showCompactPanel(panel: string) {
+  compactPanel.value = panel
+  if (window.matchMedia('(max-width: 900px)').matches) {
+    void nextTick(() => compactNavigation.value?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus())
+  }
+}
+function selectField(id: string) { selectedId.value = id; showCompactPanel('properties') }
 const storageKey = 'gatework:form-generator:arco:v1'
 const schema = ref(emptySchema())
 const storageError = ref<'storageError' | 'restoreError'>()
@@ -75,7 +92,7 @@ const groups: { label: TranslationKey, types: FieldType[] }[] = [
   { label: 'layoutGroup', types: ['row', 'button', 'table'] }
 ]
 const icons: Record<FieldType, Component> = { input: IconEdit, textarea: IconAlignLeft, password: IconLock, number: IconPlus, select: IconDown, cascader: IconBranch, radio: IconCheckCircle, checkbox: IconCheckSquare, switch: IconPoweroff, slider: IconSettings, time: IconClockCircle, timeRange: IconClockCircle, date: IconCalendar, dateRange: IconCalendar, rate: IconStar, color: IconPalette, upload: IconUpload, row: IconLayout, richtext: IconBold, table: IconList, button: IconRecord }
-function add(type: FieldType, parentId?: string, index?: number) { const field = createField(type, schema.value.fields, t(type), t('option')); const list = parentId ? locateField(schema.value.fields, parentId)?.field.children : schema.value.fields; if (!list) return; list.splice(index ?? list.length, 0, field); selectedId.value = field.id }
+function add(type: FieldType, parentId?: string, index?: number) { const field = createField(type, schema.value.fields, t(type), t('option')); const list = parentId ? locateField(schema.value.fields, parentId)?.field.children : schema.value.fields; if (!list) return; list.splice(index ?? list.length, 0, field); selectedId.value = field.id; showCompactPanel('canvas') }
 function duplicate(field: Field) { const location = locateField(schema.value.fields, field.id); if (!location) return; const copy = duplicateField(field, schema.value.fields); location.list.splice(location.index + 1, 0, copy); selectedId.value = copy.id }
 function remove(id: string) { const location = locateField(schema.value.fields, id); if (!location) return; location.list.splice(location.index, 1); if (!selectedId.value || !locateField(schema.value.fields, selectedId.value)) selectedId.value = location.list[location.index]?.id ?? location.list[location.index - 1]?.id ?? schema.value.fields[0]?.id }
 function move(id: string, delta: number) { const location = locateField(schema.value.fields, id); if (!location) return; const to = location.index + delta; if (to < 0 || to >= location.list.length) return; location.list.splice(location.index, 1); location.list.splice(to, 0, location.field) }

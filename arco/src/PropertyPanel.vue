@@ -1,8 +1,9 @@
 <template>
-  <a-tabs v-model:active-key="activeTab" class="inspector-tabs" justify>
+  <a-tabs ref="tabs" v-model:active-key="activeTab" class="inspector-tabs" justify>
     <a-tab-pane key="field" :title="t('properties')">
       <a-empty v-if="!field" class="inspector-empty" :description="t('selectField')" />
       <a-form v-else :key="field.id" :model="field" layout="horizontal" :label-col-props="{ span: 8 }" :wrapper-col-props="{ span: 16 }" size="small" class="property-form">
+        <h3 class="property-section property-section-first">{{ t('basicProperties') }}</h3>
         <a-form-item :label="t('componentType')"><a-select :model-value="field.type" :options="typeOptions" @update:model-value="$emit('changeType', $event as FieldType)" /></a-form-item>
         <a-form-item :label="t('name')"><a-input v-model="field.name" :input-attrs="{ 'aria-label': t('name') }" /></a-form-item>
         <a-form-item :label="t('label')"><a-input v-model="field.label" :input-attrs="{ 'aria-label': t('label') }" /></a-form-item>
@@ -21,6 +22,7 @@
             <a-form-item v-if="field.type !== 'rate'" :label="t('step')"><a-input-number :model-value="field.step" @update:model-value="setFieldNumber('step', $event)" :min="0.01" /></a-form-item>
           </template>
         </template>
+        <h3 v-if="settings.length" class="property-section">{{ t('controlProperties') }}</h3>
         <a-form-item v-for="setting in settings" :key="setting.key" :label="t(setting.label)">
           <a-switch v-if="setting.kind === 'boolean'" :model-value="Boolean(settingValue(setting))" @update:model-value="setProperty(setting.key, $event)" />
           <a-input-number v-else-if="setting.kind === 'number'" :model-value="numberSettingValue(setting)" :min="0" @update:model-value="setProperty(setting.key, $event)" />
@@ -83,7 +85,7 @@
   </a-tabs>
 </template>
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import { IconPlus, IconClose } from '@arco-design/web-vue/es/icon'
 import * as iconComponents from '@arco-design/web-vue/es/icon'
@@ -96,10 +98,11 @@ import { fieldTypes, fieldProps, hasOptions, isArray, isNumeric, parseOptions, t
 const props = defineProps<{ field?: Field, schema: Schema }>()
 defineEmits<{ changeType: [type: FieldType], multiple: [value: boolean] }>()
 const iconNames = Object.keys(iconComponents).filter(name => name.startsWith('Icon')) as (keyof typeof iconComponents)[]
+const tabs = ref<{ $el: HTMLElement }>()
 const activeTab = ref('field')
 const optionsText = ref('')
 const rowsText = ref('')
-watch(() => props.field?.id, () => { if (props.field) activeTab.value = 'field' })
+watch(() => props.field?.id, async() => { if (props.field) activeTab.value = 'field'; await nextTick(); const content = tabs.value?.$el.querySelector('.arco-tabs-content'); if (content) content.scrollTop = 0 })
 watch(() => props.field?.options, value => { optionsText.value = JSON.stringify(value ?? [], null, 2) }, { immediate: true, deep: true })
 watch(() => props.field?.rows, value => { rowsText.value = JSON.stringify(value ?? [], null, 2) }, { immediate: true, deep: true })
 const typeOptions = computed(() => fieldTypes.map(value => ({ value, label: t(value) })))

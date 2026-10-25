@@ -84,6 +84,7 @@ test('production export retains nested controls, validation, remote retries and 
     return route.abort()
   })
   await page.goto(baseURL)
+  await expect(page.locator('.active-case').getByRole('textbox', { name: 'Account', exact: true })).toBeVisible()
   const active = page.locator('.active-case')
   const account = formItem(active, 'Account')
   const choice = formItem(active, 'Remote choice')

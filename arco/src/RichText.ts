@@ -2,6 +2,24 @@ import * as RichTextVue from 'vue'
 import { formItemInjectionKey as rtFormItemKey } from '@arco-design/web-vue/es/form/context'
 import type { Editor as RichTextEditor, TinyMCE as RichTextTinyMCE } from 'tinymce'
 
+// Keep the embedded and exported editor on the same Arco surfaces.
+const rtSkinStyles = `
+.tox.tox-tinymce { border: 1px solid var(--color-border-2); border-radius: var(--border-radius-small, 2px); }
+.tox.tox-tinymce:focus-within { border-color: rgb(var(--primary-6)); }
+.tox .tox-editor-header, .tox .tox-menubar, .tox .tox-toolbar, .tox .tox-toolbar__primary,
+.tox .tox-toolbar-overlord, .tox .tox-toolbar__overflow, .tox .tox-edit-area__iframe,
+.tox .tox-statusbar { background: var(--color-bg-2); }
+.tox:not(.tox-tinymce-inline) .tox-editor-header { background: var(--color-bg-2); box-shadow: none; border-bottom: 1px solid var(--color-border-2); }
+.tox .tox-statusbar { border-top-color: var(--color-border-2); color: var(--color-text-3); }
+.tox .tox-mbtn, .tox .tox-tbtn { color: var(--color-text-2); }
+.tox .tox-tbtn--bespoke { background: var(--color-fill-2); }
+.tox .tox-tbtn svg { fill: currentColor; }
+.tox .tox-mbtn:hover:not(:disabled):not(.tox-mbtn--active), .tox .tox-tbtn:hover,
+.tox .tox-tbtn:focus, .tox .tox-mbtn:focus:not(:disabled) { background: var(--color-fill-2); color: var(--color-text-1); }
+.tox .tox-tbtn--enabled, .tox .tox-tbtn--enabled:hover, .tox .tox-mbtn--active { background: rgb(var(--primary-1)); color: rgb(var(--primary-6)); }
+.tox .tox-tbtn--disabled, .tox .tox-tbtn--disabled:hover { color: var(--color-text-4); }
+`
+
 // Chinese translations retained from the upstream form-generator TinyMCE locale.
 const rtChinese: Record<string, string> = {
   "Redo": "重做",
@@ -490,8 +508,8 @@ function rtLoadRuntime(): Promise<RichTextTinyMCE> {
       import('tinymce/skins/ui/oxide/skin.min.css?raw'),
       import('tinymce/skins/ui/oxide-dark/skin.min.css?raw')
     ])
-    tiny.Resource.add('ui/rt-light/skin.css', lightSkin.default)
-    tiny.Resource.add('ui/rt-dark/skin.css', darkSkin.default)
+    tiny.Resource.add('ui/rt-light/skin.css', lightSkin.default + rtSkinStyles)
+    tiny.Resource.add('ui/rt-dark/skin.css', darkSkin.default + rtSkinStyles)
     // Content styles are supplied directly inside the editing iframe below.
     tiny.Resource.add('ui/rt-light/content.css', '')
     tiny.Resource.add('ui/rt-dark/content.css', '')
@@ -537,12 +555,15 @@ const RichText = RichTextVue.defineComponent({
           props.dark ? import('tinymce/skins/ui/oxide-dark/content.min.css?raw') : import('tinymce/skins/ui/oxide/content.min.css?raw')
         ])
         if (!mounted || current !== generation || !target.value) return
+        const theme = getComputedStyle(target.value)
+        const background = theme.getPropertyValue('--color-bg-2').trim() || (props.dark ? '#232324' : '#fff')
+        const foreground = theme.getPropertyValue('--color-text-1').trim() || (props.dark ? '#f6f6f6' : '#1d2129')
         const instances = await tiny.init({
           target: target.value,
           language: props.locale.startsWith('zh') ? 'zh_CN' : 'en',
           skin_url: props.dark ? 'rt-dark' : 'rt-light',
           content_css: false,
-          content_style: content.default + contentSkin.default + 'body { overflow-wrap: anywhere; }',
+          content_style: content.default + contentSkin.default + `body { overflow-wrap: anywhere; background: ${background}; color: ${foreground}; font-size: 14px; line-height: 1.7; }`,
           height: Math.max(180, props.height),
           readonly: readonly.value,
           branding: false,

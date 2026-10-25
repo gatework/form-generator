@@ -98,6 +98,8 @@ export const componentNames: Record<FieldType, string> = {
 /** Shared by canvas, preview and exported runtime; authoring never sends uploaded files. */
 export function fieldProps(field: Field, runtime = false): Record<string, unknown> {
   const props: Record<string, unknown> = { disabled: field.disabled }
+  if (['input', 'password', 'number'].includes(field.type)) props.inputAttrs = { 'aria-label': field.label }
+  if (field.type === 'textarea') props.textareaAttrs = { 'aria-label': field.label }
   if (['input', 'textarea', 'password', 'number', 'select', 'cascader', 'time', 'date'].includes(field.type)) props.placeholder = field.placeholder
   if (['input', 'password', 'select', 'cascader', 'time', 'date', 'dateRange', 'timeRange'].includes(field.type)) props.allowClear = true
   if (hasOptions(field.type)) props.options = field.options
