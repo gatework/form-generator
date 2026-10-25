@@ -63,7 +63,7 @@ function writeBuildMetadata() {
   cpSync(resolve(root, '../LICENSE'), resolve(destination, 'LICENSE'))
   copyEditorLicenses(destination)
   const files = Object.fromEntries(walk(destination).filter(file => !file.endsWith('/SOURCE.json')).map(file => [relative(destination, file), hash(file)]))
-  writeFileSync(resolve(destination, 'SOURCE.json'), JSON.stringify({ repository: 'https://github.com/gatework/form-generator', upstream: 'https://github.com/JakHuang/form-generator', branch: git('branch', '--show-current'), baseCommit: git('rev-parse', 'HEAD'), dirty: !!git('status', '--porcelain', '--', 'arco'), sourceHash, files }, null, 2) + '\n')
+  writeFileSync(resolve(destination, 'SOURCE.json'), JSON.stringify({ repository: 'https://github.com/gatework/form-generator', upstream: 'https://github.com/JakHuang/form-generator', branch: git('branch', '--show-current'), baseCommit: git('rev-parse', 'HEAD'), dirty: !!git('status', '--porcelain', '--', '.'), sourceHash, files }, null, 2) + '\n')
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) writeBuildMetadata()
