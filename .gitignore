@@ -24,3 +24,6 @@ yarn-error.log*
 *.sw?
 
 .prettierrc
+/arco/dist
+/arco/test-results
+/arco/playwright-report

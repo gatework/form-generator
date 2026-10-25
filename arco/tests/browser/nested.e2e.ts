@@ -1,0 +1,37 @@
+import { test, expect } from '@playwright/test'
+
+test('nested rows drag, duplicate and preview their actual field models', async({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', error => errors.push(error.message))
+  await page.goto('/')
+  await page.locator('.palette').getByRole('button', { name: '行容器', exact: true }).click()
+  await page.locator('.palette').getByRole('button', { name: '行容器', exact: true }).dragTo(page.locator('.row-empty').first())
+  await expect(page.locator('.row-field')).toHaveCount(2)
+  await page.getByRole('button', { name: '单行文本', exact: true }).dragTo(page.locator('.row-empty').last())
+  await expect(page.locator('.nested-grid .nested-grid .builder-field')).toHaveCount(1)
+  await page.getByRole('textbox', { name: '标题', exact: true }).fill('Nested code')
+  // User-configured validation must operate at every nesting level.
+  await page.getByRole('button', { name: /添加校验/ }).click()
+  await page.getByRole('textbox', { name: '正则表达式（不含 /）', exact: true }).fill('^A[0-9]{3}$')
+  await page.getByRole('textbox', { name: '错误提示', exact: true }).fill('Use A and three digits')
+  await page.getByRole('button', { name: '运行', exact: true }).click()
+  const modal = page.locator('.arco-modal')
+  await modal.locator('input').first().fill('bad')
+  await modal.getByRole('button', { name: '提交', exact: true }).click()
+  await expect(modal.getByText('Use A and three digits')).toBeVisible()
+  await modal.locator('input').first().fill('A123')
+  await modal.getByRole('button', { name: '提交', exact: true }).click()
+  await expect(modal.locator('pre')).toContainText('"field3": "A123"')
+  await expect(modal.locator('pre')).not.toContainText('field1')
+  await page.locator('.arco-modal-close-btn').click()
+  await expect(modal).toHaveCount(0)
+  // Duplicate the outer container; all descendants must receive new identities.
+  await page.locator('.row-field').first().hover()
+  await page.locator('.row-field').first().locator(':scope > .field-tools').getByRole('button', { name: '复制', exact: true }).click()
+  await expect(page.locator('.row-field')).toHaveCount(4)
+  const draft = await page.evaluate(() => JSON.parse(localStorage.getItem('gatework:form-generator:arco:v1')!))
+  expect(draft.fields[0].children[0].children[0].name).toBe('field3')
+  expect(draft.fields[1].children[0].children[0].name).toBe('field6')
+  await page.screenshot({ path: 'test-results/designer-nested.png', fullPage: true })
+  expect(errors).toEqual([])
+})
